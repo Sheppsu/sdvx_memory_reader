@@ -4,3 +4,4 @@ build/
 dist/
 rich_presence.spec
 .env
+make exe.bat
