@@ -3,5 +3,4 @@ __pycache__/
 build/
 dist/
 rich_presence.spec
-sdvx rich presence.spec
 .env
