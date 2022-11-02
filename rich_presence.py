@@ -23,7 +23,7 @@ def run():
             activity = Activity(timestamps=ActivityTimestamps.now(),
                                 details=details, assets=assets)
             client.set_activity(mem_reader.memory_searcher.process.pid, activity,
-                                lambda result, event: print(f"set_activity result: {result}"))
+                                lambda result, event: print(f"set_activity result: {str(result)}"))
 
 try:
     run()
