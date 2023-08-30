@@ -1,1 +1,0 @@
-pyinstaller --noconfirm --onefile --console  "C:/Users/Sheep/Desktop/Programming/Python/memory reading/sdvx_memory_reader/rich_presence.py"

@@ -1,13 +1,21 @@
-NOTE: Currently it doesn't work after a song is played cuz the memory address for stuff changes. I'm working on a fix for that, but for now it's kinda useless lol
-This repo contains Python libraries and programs for reading sdvx exceed gear virtual memory data to get certain in-game values.
+# SDVX Memory Reader
+C library for reading memory of Sound Voltex Exceed Gear. 
+It does not implement any methods to inject itself into the program, but instead just calls ReadProcessMemory.
+I plan to add more to it, because at the moment it's fairly barebones. 
+I also need to add docs on some more of the functions, but as of now it works fine. 
+Future updates may break it, in which case you can just create an `issue`_.
 
-TODO
-####
-I plan searching for and adding more values to the program plus cleaning up the code a bit.
+Programs that use this library
+##############################
+
 
 How to use
 ##########
-* memory folder contains library for reading virtual memory data with fair ease
-* sdvx.py implements the memory library specifically for Sound Voltex EXCEED GEAR
-* the discordipc library is used for communicating with the discord ipc on Windows using pipes. I plan on implementing much more capability to that library and releasing it separate from this repo.
-* rich_presence.py implements sdvx.py and the discordipc library to create a rich presence that displays what song you're playing. I would like to display more info, but first I have to find the memory offsets so that I can actually get that data. If you want an exe version of this program then you can get it here: https://github.com/Sheepposu/sdvx_memory_reader/releases/tag/rp-v1.0.0
+memory_reader contains the functionality to control everything. 
+* ``memory_reader_init`` looks for the program and finds all the memory locations. 
+* ``memory_reader_cleanup`` performs cleanup for when you're done using the memory reader.
+* ``memory_reader_update`` is an integral function that reads memory and updates the values of ``MemoryData``. The values of ``MemoryData`` won't update otherwise. 
+* ``MemoryData`` is a variable that contains all the data read from the sdvx process after ``memory_reader_update`` is called.
+* If you encounter any problems, just make an `issue`_.
+
+.. _issue: https://github.com/Sheppsu/sdvx_memory_reader/issues
