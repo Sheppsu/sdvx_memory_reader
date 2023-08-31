@@ -8,7 +8,7 @@ Future updates may break it, in which case you can just create an `issue`_.
 
 Programs that use this library
 ##############################
-
+* `sdvx_rich_presence`_: program that creates a discord rich presence for sdvx exceed gear.
 
 How to use
 ##########
@@ -21,3 +21,4 @@ memory_reader contains the functionality to control everything.
 * If you encounter any problems, just make an `issue`_.
 
 .. _issue: https://github.com/Sheppsu/sdvx_memory_reader/issues
+.. _sdvx_rich_presence: https://github.com/Sheppsu/sdvx_rich_presence
