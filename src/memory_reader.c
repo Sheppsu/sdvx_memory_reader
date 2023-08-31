@@ -48,6 +48,7 @@ bool init_module_info() {
     HMODULE* modules = malloc(lpcbNeeded);
     if (EnumProcessModules(currentProcessHandle, modules, lpcbNeeded, &lpcbNeeded) == 0) {
         printf("Second EnumProcessModules call failed with error code %d\n", GetLastError());
+        free(modules);
         return false;
     }
 
@@ -56,18 +57,30 @@ bool init_module_info() {
         char modFilePath[MAX_PATH];
         if (GetModuleFileNameExA(currentProcessHandle, modules[i], modFilePath, MAX_PATH) == 0) {
             printf("Failed to get module file name with error code %d\n", GetLastError());
+            free(modules);
             return false;
         }
         PathStripPathA(modFilePath);
 
         if (strcmp(modFilePath, "sv6c.exe") == 0) {
-            if (!get_module_info(modules[i], &currentProcessInfo)) return false;
+            if (!get_module_info(modules[i], &currentProcessInfo)) {
+                free(modules);
+                return false;
+            }
         } else if (strcmp(modFilePath, "avs2-core.dll") == 0) {
-            if (!get_module_info(modules[i], &avs2CoreInfo)) return false;
+            if (!get_module_info(modules[i], &avs2CoreInfo)) {
+                free(modules);
+                return false;
+            }
         }
 
-        if (currentProcessInfo.lpBaseOfDll != NULL && avs2CoreInfo.lpBaseOfDll != NULL) return true;
+        if (currentProcessInfo.lpBaseOfDll != NULL && avs2CoreInfo.lpBaseOfDll != NULL) {
+            free(modules);
+            return true;
+        }
     }
+
+    free(modules);
 
     printf("Unable to get module info for sv6c.exe and avs2-core.dll");
     return false;
