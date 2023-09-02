@@ -9,6 +9,7 @@ Future updates may break it, in which case you can just create an `issue`_.
 Programs that use this library
 ##############################
 * `sdvx_rich_presence`_: program that creates a discord rich presence for sdvx exceed gear.
+You can make a PR to add anything here.
 
 How to use
 ##########
