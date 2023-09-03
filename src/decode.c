@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <wchar.h>
 
+/*
+    Take a wide char and convert it to a utf-8 character.
+    Buffer should be at least length 3.
+*/
 unsigned char wchar_to_utf8(char* buf, wchar_t wchar) {
     if (wchar <= 0x7F) {
         buf[0] = (unsigned char)wchar;
@@ -21,6 +25,10 @@ unsigned char wchar_to_utf8(char* buf, wchar_t wchar) {
     }
 }
 
+/*
+    Decode a string of JIS-0208 encoded text and write utf-8 encoded text to outBuf.
+    Returns false if outBuf is too small.
+*/
 bool decode_text(char* text, char* outBuf, size_t bufSize) {
     int textI = 0;
     int bufI = 0;

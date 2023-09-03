@@ -42,9 +42,24 @@ typedef struct _SEARCH_PATTERN {
 
 extern MEMORY_DATA MemoryData;
 
+/*
+    Looks for and attempts to open a handle to the SDVX process.
+    Then finds all the memory addresses for the data we want.
+*/
 bool memory_reader_init();
+/*
+    Set memory of MemoryData to 0 and close handle to process.
+    Returns false if closing process handle fails, else true.
+*/
 bool memory_reader_cleanup();
+/*
+    Update values of MemoryData.
+    The values will otherwise not update.
+*/
 bool memory_reader_update();
+/*
+    Get the process id of the current process (sv6c.exe).
+*/
 DWORD memory_reader_process_id();
 
 #endif  /* MEMORY_READER_H */

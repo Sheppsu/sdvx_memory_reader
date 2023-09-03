@@ -21,7 +21,8 @@ MEMORY_DATA MemoryData;
 
 
 /* 
-    Get module information from a module handle
+    Get module information from a module handle.
+    Return false if GetModuleInformation fails, else true.
 */
 bool get_module_info(HMODULE moduleHandle, MODULEINFO* output) {
     if (GetModuleInformation(currentProcessHandle, moduleHandle, output, sizeof(MODULEINFO)) == 0) {
@@ -32,7 +33,8 @@ bool get_module_info(HMODULE moduleHandle, MODULEINFO* output) {
 }
 
 /*
-    Get needed module info (for sv6c.exe and avs2-core.dll)
+    Get needed module info (for sv6c.exe and avs2-core.dll).
+    Return false if any of the steps fail, else true.
 */
 bool init_module_info() {
     if (currentProcessHandle == NULL) {
@@ -88,7 +90,7 @@ bool init_module_info() {
 
 /*
     Sets currentProcessId if it succeeds in finding the process.
-    Returns false upon failing to do so.
+    Returns false when any winapi calls fail or the process is not found, else true.
 */
 bool set_current_process(char* processName) {
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -119,9 +121,8 @@ bool set_current_process(char* processName) {
 }
 
 /*
-    Sets currentProcessHandle if currentProcessid is set and OpenProcess succeeds.
-    Calls GetProcessInformation to set currentProcessInfo.
-    Returns false upon failing to do so.
+    Gets a handle to the current process (from currentProcessId).
+    Returns false if current process is not set or OpenProcess fails, else true.
 */
 bool open_process() {
     if (currentProcessId == 0) {
@@ -139,8 +140,8 @@ bool open_process() {
 }
 
 /*
-    Closes a process which was opened with open_process.
-    Returns false upon failing to do so.
+    Closes handle to the current process (from currentProcessHandle).
+    Returns false if currentProcessHandle is NULL or CloseHandle fails, else true.
 */
 bool close_process() {
     if (currentProcessHandle == NULL) {
@@ -157,8 +158,10 @@ bool close_process() {
 }
 
 /*
-    Gets information of an address page.
-    Returns false when any error other than 87 occurs.
+    Get information about an address page.
+    If error 87 is raised by VirtualQueryEx, finished is set to true.
+    Error 87 indicates that the last page has been reached.
+    Returns false when an error is raised (including 87), else true.
 */
 bool query_page(MEMORY_BASIC_INFORMATION* info, char* address, bool* finished) {
     if (VirtualQueryEx(currentProcessHandle, address, info, sizeof(MEMORY_BASIC_INFORMATION)) == 0) {
@@ -174,7 +177,8 @@ bool query_page(MEMORY_BASIC_INFORMATION* info, char* address, bool* finished) {
 }
 
 /*
-    Reads memory from address and puts into provided buffer.
+    Reads memory from an address into a buffer.
+    Returns false if ReadProcessMemory fails, else true.
 */
 bool read_address(void* buf, size_t* sizeBuf, void* address, size_t size) {
     if (ReadProcessMemory(currentProcessHandle, address, buf, size, sizeBuf)) {
@@ -185,7 +189,7 @@ bool read_address(void* buf, size_t* sizeBuf, void* address, size_t size) {
 }
 
 /*
-    Read a page and set the address for patterns that match.
+    Read a page and set the address for any patterns that match.
     Returns number of unfound patterns left or 0xFF when read_memory fails.
 */
 unsigned char search_page(MEMORY_BASIC_INFORMATION info, char* addr) {
@@ -225,7 +229,8 @@ unsigned char search_page(MEMORY_BASIC_INFORMATION info, char* addr) {
 
 /*
     Query through all pages and execute callback for readable pages.
-    Returns false when a call to _query_page fails.
+    Returns false when a call to query_page fails or all the patterns were not found.
+    Returns true when all patterns have been found.
 */
 bool init_patterns() {
     if (&currentProcessInfo == NULL) {
@@ -240,6 +245,7 @@ bool init_patterns() {
         }
     }
 
+    // TODO: implement pattern search for avs2core base patterns (if ever needed)
     char* addr = currentProcessInfo.lpBaseOfDll;
     MEMORY_BASIC_INFORMATION info;
     bool finished = false;
@@ -258,13 +264,9 @@ bool init_patterns() {
             break;
         }
     }
-    return true;
+    return false;
 }
 
-/*
-    Looks for and attempts to open a handle to the SDVX process.
-    Then find all the memory addresses for the data we want.
-*/
 bool memory_reader_init() {
     printf("Searching for process\n");
     if (!set_current_process("sv6c.exe")) return false;
@@ -278,9 +280,6 @@ bool memory_reader_init() {
     return true;
 }
 
-/*
-    Cleanup open process and set data of MemoryData to zero.
-*/
 bool memory_reader_cleanup() {
     printf("Cleaning up\n");
     memset(&MemoryData, 0, sizeof(MEMORY_DATA));
@@ -289,9 +288,6 @@ bool memory_reader_cleanup() {
     return true;
 }
 
-/*
-    Update values of MemoryData
-*/
 bool memory_reader_update() {
     // TODO: use char instead of string to identify pattern type
     for (int i=0; i<patternCount; i++) {
