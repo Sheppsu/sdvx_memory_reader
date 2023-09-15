@@ -64,5 +64,6 @@ bool decode_text(char* text, char* outBuf, size_t bufSize) {
         }
     }
 
+    outBuf[bufI] = '\0';
     return true;
 }

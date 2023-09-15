@@ -11,11 +11,13 @@ HANDLE currentProcessHandle;
 MODULEINFO currentProcessInfo;
 MODULEINFO avs2CoreInfo;
 
-SEARCH_PATTERN searchPatterns[2] = {
-    {PATTERN_GAME_STATE, 8, 0, 0, 0x0, NULL},
-    {NULL, 0, 0x146348, 1, 0x1, NULL}
+// NOTE: pattern search isn't implemented for base 1 (avs2core) yet
+SEARCH_PATTERN searchPatterns[] = {
+    {PATTERN_GAME_STATE, 8, 0, 0, PI_GAME_STATE, NULL},
+    {NULL, 0, 0x146348, 1, PI_UI_PTR, NULL},
+    {NULL, 0, 0x799740, 0, PI_USERDATA_PTR, NULL}
 };
-unsigned char patternCount = 2;
+const unsigned char PATTERN_COUNT = 3;
 
 MEMORY_DATA MemoryData;
 
@@ -200,24 +202,24 @@ unsigned char search_page(MEMORY_BASIC_INFORMATION info, char* addr) {
     }
 
     unsigned char unfound_patterns = 0;
-    for (int i=0; i<patternCount; i++) {
-        SEARCH_PATTERN pttrn = searchPatterns[i];
-        if (pttrn.addr != NULL) continue;
+    for (int i=0; i<PATTERN_COUNT; i++) {
+        SEARCH_PATTERN pattern = searchPatterns[i];
+        if (pattern.addr != NULL) continue;
         unfound_patterns++;
         
         size_t bufI = 0;
-        size_t pttrnI = 0;
+        size_t patternI = 0;
         while (bufI < bufSize) {
-            if (buf[bufI] == pttrn.pattern[pttrnI]) {
-                pttrnI++;
-                if (pttrnI == pttrn.size) {
-                    searchPatterns[i].addr = (void*)(addr+bufI+1+pttrn.offset);
+            if (buf[bufI] == pattern.pattern[patternI]) {
+                patternI++;
+                if (patternI == pattern.size) {
+                    searchPatterns[i].addr = (void*)(addr+bufI+1+pattern.offset);
                     unfound_patterns--;
-                    printf("Found pattern %d at 0x%p\n", pttrn.identifier, searchPatterns[i].addr);
+                    printf("Found pattern %d at 0x%p\n", pattern.identifier, searchPatterns[i].addr);
                     break;
                 }
             } else {
-                pttrnI = 0;
+                patternI = 0;
             }
             bufI++;
         }
@@ -238,10 +240,11 @@ bool init_patterns() {
         return false;
     }
 
-    for (int i=0; i<patternCount; i++) {
-        SEARCH_PATTERN pttrn = searchPatterns[i];
-        if (pttrn.pattern == NULL) {
-            searchPatterns[i].addr = (char*)(pttrn.base == 1 ? avs2CoreInfo.lpBaseOfDll : currentProcessInfo.lpBaseOfDll) + pttrn.offset;
+    for (int i=0; i<PATTERN_COUNT; i++) {
+        SEARCH_PATTERN pattern = searchPatterns[i];
+        if (pattern.pattern == NULL) {
+            searchPatterns[i].addr = (char*)(pattern.base == 1 ? avs2CoreInfo.lpBaseOfDll : currentProcessInfo.lpBaseOfDll) + pattern.offset;
+            printf("Found pattern %d at 0x%p\n", pattern.identifier, searchPatterns[i].addr);
         }
     }
 
@@ -267,6 +270,7 @@ bool init_patterns() {
     return false;
 }
 
+// docs in memory_reader.h
 bool memory_reader_init() {
     printf("Searching for process\n");
     if (!set_current_process("sv6c.exe")) return false;
@@ -280,6 +284,7 @@ bool memory_reader_init() {
     return true;
 }
 
+// docs in memory_reader.h
 bool memory_reader_cleanup() {
     printf("Cleaning up\n");
     memset(&MemoryData, 0, sizeof(MEMORY_DATA));
@@ -288,58 +293,104 @@ bool memory_reader_cleanup() {
     return true;
 }
 
+/*
+    Traverse a sequence of pointers + offsets and return the end address.
+    Returns NULL if a call to read_address fails.
+*/
+void* get_ptr(void* baseAddr, int num, ...) {
+    va_list args;
+    va_start(args, num);
+
+    size_t from = (size_t)baseAddr;
+    size_t to;
+    size_t sizeBuf;
+    for (int i=0; i<num; i++) {
+        if (!read_address(&to, &sizeBuf, (void*)(from+va_arg(args, int)), sizeof(size_t))) return NULL;
+        if (to == 0) return NULL;
+        from = to;
+    }
+
+    return (void*)from;
+}
+
+/*
+    Decode text of a certain ui object (denoted by index i).
+    Returns false if a call to decode_text fails or it fails to parse the text, else true.
+*/
+bool do_decode(int i) {
+    // First strip the text style thingy
+    char* uiText = MemoryData.UiObjects[i].text;
+    if (MemoryData.UiObjects[i].text[0] == '[') {
+        int textI = 0;
+        while (textI < 512) {
+            textI++;
+            if (uiText[textI] == ']' && uiText[textI+1] != '[') {
+                break;
+            }
+        }
+        if (textI == 512) {
+            printf("Failed to parse text of ui object %s", MemoryData.UiObjects[i].label);
+            uiText[0] = '\0';
+            return false;
+        }
+        char temp[512];
+        memcpy(temp, uiText+textI+1, 512-textI-1);
+        strcpy(uiText, temp);
+    }
+
+    // Now decode the stripped text
+    char outBuf[512];
+    if (!decode_text(MemoryData.UiObjects[i].text, outBuf, 512)) return false;
+    strcpy(MemoryData.UiObjects[i].text, outBuf);
+    return true;
+}
+
+/*
+    Populates the items of the MemoryData.UiObjects array with values.
+    Returns false if a call to read_address or do_decode fails, else true.
+*/
+bool populate_ui_objects(void* addr) {
+    size_t uiObjPtrs[26];
+    size_t sizeBuf;
+    if (!read_address(&uiObjPtrs, &sizeBuf, addr, sizeof(size_t)*26)) return true;
+    for (int i=0; i<26; i++) {
+        // Get UI objects
+        // Returns when a null ptr is encountered (list likely ended short of 26 for whatever reason)
+        if (uiObjPtrs[i] == 0) return true;
+        if (!read_address(MemoryData.UiObjects+i, &sizeBuf, (void*)uiObjPtrs[i], sizeof(UI_OBJECT))) return false;
+        if (!do_decode(i)) return false;
+        MemoryData.uiObjCount++;
+    }
+    return true;
+}
+
+// docs in memory_reader.h
 bool memory_reader_update() {
     // TODO: use char instead of string to identify pattern type
-    for (int i=0; i<patternCount; i++) {
-        SEARCH_PATTERN pttrn = searchPatterns[i];
+    MemoryData.uiObjCount = 0;
+    for (int i=0; i<PATTERN_COUNT; i++) {
+        SEARCH_PATTERN pattern = searchPatterns[i];
 
         size_t sizeBuf;
-        if (pttrn.identifier == 0x0) {
-            if (!read_address(&MemoryData.GameState, &sizeBuf, pttrn.addr, sizeof(unsigned char))) return false;
-        } else if (pttrn.identifier == 0x1 && MemoryData.GameState == STATE_MUSIC_SELECT) {
-            // Find location of ui objects from a base pointer
-            // First reads return true upon error or null ptr because it's most likely due to
-            // transition between screens
-            size_t ptr1;
-            if (!read_address(&ptr1, &sizeBuf, pttrn.addr, sizeof(size_t))) return true;
-            if (ptr1 == 0) return true;
-            size_t ptr2;
-            if (!read_address(&ptr2, &sizeBuf, (void*)(ptr1+0x174), sizeof(size_t))) return true;
-            if (ptr2 == 0) return true;
-            size_t ptr3;
-            if (!read_address(&ptr3, &sizeBuf, (void*)(ptr2+0x158), sizeof(size_t))) return true;
-            if (ptr3 == 0) return true;
-
-            size_t ui_obj_ptrs[26];
-            if (!read_address(&ui_obj_ptrs, &sizeBuf, (void*)(ptr3+0x118), sizeof(size_t)*26)) return true;
-            for (int i=0; i<26; i++) {
-                if (ui_obj_ptrs[i] == 0) return true;
-                if (!read_address(MemoryData.UiObjects+i, &sizeBuf, (void*)ui_obj_ptrs[i], sizeof(UI_OBJECT))) return false;
-
-                char* uiText = MemoryData.UiObjects[i].text;
-                if (MemoryData.UiObjects[i].text[0] == '[') {
-                    int textI = 0;
-                    while (textI < 512) {
-                        textI++;
-                        if (uiText[textI] == ']' && uiText[textI+1] != '[') {
-                            break;
-                        }
-                    }
-                    if (textI == 512) {
-                        printf("Failed to parse text of ui object %s", MemoryData.UiObjects[i].label);
-                        memset(uiText, 0, 512);
-                        continue;
-                    }
-                    char temp[512];
-                    memcpy(temp, uiText+textI+1, 512-textI-1);
-                    memset(uiText, 0, 512);
-                    strcpy(uiText, temp);
-                }
-
-                char outBuf[512];
-                memset(outBuf, 0, 512);
-                if (!decode_text(MemoryData.UiObjects[i].text, outBuf, 512)) return false;
-                strcpy(MemoryData.UiObjects[i].text, outBuf);
+        switch (pattern.identifier) {
+            case PI_GAME_STATE:
+                if (!read_address(&MemoryData.GameState, &sizeBuf, pattern.addr, sizeof(unsigned char))) return false;
+                continue;
+            case PI_UI_PTR:
+            {
+                if (MemoryData.GameState != STATE_MUSIC_SELECT) continue;
+                char* uiPtrs = get_ptr(pattern.addr, 3, 0, 0x174, 0x158);
+                if (uiPtrs == NULL) continue;
+                if (!populate_ui_objects(uiPtrs+0x118)) return false;
+                continue;
+            }
+            case PI_USERDATA_PTR:
+            {
+                if (MemoryData.GameState == STATE_STARTUP || MemoryData.GameState == STATE_LOADING || MemoryData.GameState == STATE_TITLE) continue;
+                void* ptr = get_ptr(pattern.addr, 1, 0);
+                if (ptr == NULL) return false;
+                if (!read_address(&MemoryData.UserData, &sizeBuf, ptr, sizeof(USERDATA)));
+                continue;
             }
         }
     }
@@ -347,6 +398,7 @@ bool memory_reader_update() {
     return true;
 }
 
+// docs in memory_reader.h
 DWORD memory_reader_process_id() {
     return currentProcessId;
 }

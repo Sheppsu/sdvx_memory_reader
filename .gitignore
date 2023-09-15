@@ -1,2 +1,5 @@
 JIS0208.TXT
 generate_jis_h.py
+build/
+build.bat
+.vscode/

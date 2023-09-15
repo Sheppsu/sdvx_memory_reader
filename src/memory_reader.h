@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 static const unsigned char PATTERN_GAME_STATE[8] = {0x22, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x2B, 0x00};
+
 enum GAME_STATES {
     STATE_MUSIC_SELECT = 0x10,
     STATE_STAGE = 0x29,
@@ -19,6 +20,12 @@ enum GAME_STATES {
     STATE_LOADING = 0x00
 };
 
+enum PATTERN_IDENTIFIERS {
+    PI_GAME_STATE,
+    PI_UI_PTR,
+    PI_USERDATA_PTR
+};
+
 typedef struct _UI_OBJECT {
     char _trash1[120];
     char label[128];
@@ -26,9 +33,22 @@ typedef struct _UI_OBJECT {
     char text[512];  // actually bigger than 512 in memory I think, but this is enough
 } UI_OBJECT;
 
+typedef struct _USERDATA {
+    size_t _ptr1;
+    int _unknown1;
+    char str1[17]; // idk what these strings are, the names can be fixed when that's figured out
+    char str2[13];
+    char str3[17];
+    char username[9];
+    char _unknown2[212];
+    unsigned int volforce;
+} USERDATA;
+
 typedef struct _MEMORY_DATA {
     unsigned char GameState;
     UI_OBJECT UiObjects[26];
+    unsigned char uiObjCount;
+    USERDATA UserData;
 } MEMORY_DATA;
 
 typedef struct _SEARCH_PATTERN {
