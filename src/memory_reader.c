@@ -350,6 +350,7 @@ bool do_decode(int i) {
     Returns false if a call to read_address or do_decode fails, else true.
 */
 bool populate_ui_objects(void* addr) {
+    MemoryData.uiObjCount = 0;
     size_t uiObjPtrs[26];
     size_t sizeBuf;
     if (!read_address(&uiObjPtrs, &sizeBuf, addr, sizeof(size_t)*26)) return true;
@@ -367,7 +368,6 @@ bool populate_ui_objects(void* addr) {
 // docs in memory_reader.h
 bool memory_reader_update() {
     // TODO: use char instead of string to identify pattern type
-    MemoryData.uiObjCount = 0;
     for (int i=0; i<PATTERN_COUNT; i++) {
         SEARCH_PATTERN pattern = searchPatterns[i];
 
