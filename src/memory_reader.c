@@ -319,8 +319,8 @@ void* get_ptr(void* baseAddr, int num, ...) {
 */
 bool do_decode(int i) {
     // First strip the text style thingy
-    char* uiText = MemoryData.UiObjects[i].text;
-    if (MemoryData.UiObjects[i].text[0] == '[') {
+    char* uiText = MemoryData.uiObjects[i].text;
+    if (MemoryData.uiObjects[i].text[0] == '[') {
         int textI = 0;
         while (textI < 512) {
             textI++;
@@ -329,7 +329,7 @@ bool do_decode(int i) {
             }
         }
         if (textI == 512) {
-            printf("Failed to parse text of ui object %s", MemoryData.UiObjects[i].label);
+            printf("Failed to parse text of ui object %s", MemoryData.uiObjects[i].label);
             uiText[0] = '\0';
             return false;
         }
@@ -340,8 +340,8 @@ bool do_decode(int i) {
 
     // Now decode the stripped text
     char outBuf[512];
-    if (!decode_text(MemoryData.UiObjects[i].text, outBuf, 512)) return false;
-    strcpy(MemoryData.UiObjects[i].text, outBuf);
+    if (!decode_text(MemoryData.uiObjects[i].text, outBuf, 512)) return false;
+    strcpy(MemoryData.uiObjects[i].text, outBuf);
     return true;
 }
 
@@ -357,7 +357,7 @@ bool populate_ui_objects(void* addr) {
         // Get UI objects
         // Returns when a null ptr is encountered (list likely ended short of 26 for whatever reason)
         if (uiObjPtrs[i] == 0) return true;
-        if (!read_address(MemoryData.UiObjects+i, &sizeBuf, (void*)uiObjPtrs[i], sizeof(UI_OBJECT))) return false;
+        if (!read_address(MemoryData.uiObjects+i, &sizeBuf, (void*)uiObjPtrs[i], sizeof(UI_OBJECT))) return false;
         if (!do_decode(i)) return false;
         MemoryData.uiObjCount++;
     }
@@ -374,11 +374,11 @@ bool memory_reader_update() {
         size_t sizeBuf;
         switch (pattern.identifier) {
             case PI_GAME_STATE:
-                if (!read_address(&MemoryData.GameState, &sizeBuf, pattern.addr, sizeof(unsigned char))) return false;
+                if (!read_address(&MemoryData.gameState, &sizeBuf, pattern.addr, sizeof(unsigned char))) return false;
                 continue;
             case PI_UI_PTR:
             {
-                if (MemoryData.GameState != STATE_MUSIC_SELECT) continue;
+                if (MemoryData.gameState != STATE_MUSIC_SELECT) continue;
                 char* uiPtrs = get_ptr(pattern.addr, 3, 0, 0x174, 0x158);
                 if (uiPtrs == NULL) continue;
                 if (!populate_ui_objects(uiPtrs+0x118)) return false;
@@ -386,10 +386,10 @@ bool memory_reader_update() {
             }
             case PI_USERDATA_PTR:
             {
-                if (MemoryData.GameState == STATE_STARTUP || MemoryData.GameState == STATE_LOADING || MemoryData.GameState == STATE_TITLE) continue;
+                if (MemoryData.gameState == STATE_STARTUP || MemoryData.gameState == STATE_LOADING || MemoryData.gameState == STATE_TITLE) continue;
                 void* ptr = get_ptr(pattern.addr, 1, 0);
                 if (ptr == NULL) return false;
-                if (!read_address(&MemoryData.UserData, &sizeBuf, ptr, sizeof(USERDATA)));
+                if (!read_address(&MemoryData.userData, &sizeBuf, ptr, sizeof(USERDATA)));
                 continue;
             }
         }

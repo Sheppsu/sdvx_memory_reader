@@ -45,10 +45,10 @@ typedef struct _USERDATA {
 } USERDATA;
 
 typedef struct _MEMORY_DATA {
-    unsigned char GameState;
-    UI_OBJECT UiObjects[26];
+    unsigned char gameState;
+    UI_OBJECT uiObjects[26];
     unsigned char uiObjCount;
-    USERDATA UserData;
+    USERDATA userData;
 } MEMORY_DATA;
 
 typedef struct _SEARCH_PATTERN {
