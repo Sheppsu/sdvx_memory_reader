@@ -5,19 +5,141 @@
 #include <stdio.h>
 #include <Shlwapi.h>
 
+const PATTERN_BYTE GAME_STATE_PATTERN[15] = {
+    {0x89, false},
+    {0x05, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x48, false},
+    {0x8D, false},
+    {0x0D, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x89, false},
+    {0x2D, false},
+};
+const PATTERN_BYTE GAME_STATE_TABLE_PATTERN[12] = {
+    {0x4C, false},
+    {0x8D, false},
+    {0x05, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x33, false},
+    {0xD2, false},
+    {0x49, false},
+    {0x8B, false},
+    {0xC0, false},
+};
+
+const GAME_STATE_MAP_ITEM GAME_STATES_MAP[GAME_STATES_MAP_SIZE] = {
+    {BOOT, "BOOT"},
+    {ONLINEUPDATE, "ONLINEUPDATE"},
+    {APPMAINFLOW, "APPMAINFLOW"},
+    {TESTMODE_FLOW, "TESTMODE_FLOW"},
+    {TITLEDEMO_FLOW, "TITLEDEMO_FLOW"},
+    {TOTAL_RESULT_FLOW, "TOTAL_RESULT_FLOW"},
+    {PROTOTYPE_FLOW, "PROTOTYPE_FLOW"},
+    {SHOPCLOSING, "SHOPCLOSING"},
+    {CAUTION, "CAUTION"},
+    {GAMEOVER, "GAMEOVER"},
+    {CONFIG_VERISON_CHECK, "CONFIG_VERISON_CHECK"},
+    {TITLE_SCENE, "TITLE_SCENE"},
+    {WARNING_SCENE, "WARNING_SCENE"},
+    {MOVIE_SCENE, "MOVIE_SCENE"},
+    {RESULT_SCENE, "RESULT_SCENE"},
+    {T_RESULT_SCENE, "T_RESULT_SCENE"},
+    {MUSICSELECT, "MUSICSELECT"},
+    {DEMO_GAME, "DEMO_GAME"},
+    {DEMO_TUTORIAL, "DEMO_TUTORIAL"},
+    {CARD_ENTRY_SCENE, "CARD_ENTRY_SCENE"},
+    {CARD_ENTRY_JOIN_SCENE, "CARD_ENTRY_JOIN_SCENE"},
+    {CARD_ENTRY_NEWEAPASS_SCENE, "CARD_ENTRY_NEWEAPASS_SCENE"},
+    {CARD_ENTRY_REGIST_SCENE, "CARD_ENTRY_REGIST_SCENE"},
+    {CARD_ENTRY_AUTH_SCENE, "CARD_ENTRY_AUTH_SCENE"},
+    {CARD_ENTRY_CHECKIN_SCENE, "CARD_ENTRY_CHECKIN_SCENE"},
+    {CARD_ENTRY_INFORMATION_SCENE, "CARD_ENTRY_INFORMATION_SCENE"},
+    {CARD_ENTRY_MODE_SELECT_SCENE, "CARD_ENTRY_MODE_SELECT_SCENE"},
+    {CARD_ENTRY_ERROREND_SCENE, "CARD_ENTRY_ERROREND_SCENE"},
+    {CARD_ENTRY_END_SCENE, "CARD_ENTRY_END_SCENE"},
+    {NAME_ENTRY_SCENE, "NAME_ENTRY_SCENE"},
+    {RADARMAP_SELECT_SCENE, "RADARMAP SELECT SCENE"},
+    {CARD_OUT_SCENE, "CARD_OUT_SCENE"},
+    {STATION_SCENE, "STATION_SCENE"},
+    {SKILL_LEVEL_SELECT, "SKILL LEVEL SELECT"},
+    {TUTORIAL, "TUTORIAL"},
+    {INFORMATION_SCENE, "INFORMATION SCENE"},
+    {IMPOSSIBLE_NOTES_CHECK, "IMPOSSIBLE_NOTES_CHECK"},
+    {PROTOTYPE_VIEWER, "PROTOTYPE_VIEWER"},
+    {SYSTEM_VOLUME_CHECK_TEST_MENU, "SYSTEM_VOLUME_CHECK_TEST_MENU"},
+    {MYROOM_SCENE, "MYROOM_SCENE"},
+    {ALTERNATIVE_GAME_SCENE, "ALTERNATIVE_GAME_SCENE"},
+    {MEGAMIXBATTLE_SCENE, "MEGAMIXBATTLE_SCENE"},
+    {TRAINING_GAME_SCENE, "TRAINING_GAME_SCENE"},
+    {MAIN_TEST_MENU, "MAIN_TEST_MENU"},
+    {IO_TEST_MENU, "IO_TEST_MENU"},
+    {IO_INPUT_CHECK_TEST_MENU, "IO_INPUT_CHECK_TEST_MENU"},
+    {IO_CAMERA_CHECK_TEST_MENU, "IO_CAMERA_CHECK_TEST_MENU"},
+    {IO_TOUCH_PANEL_CHECK_TEST_MENU, "IO_TOUCH_PANEL_CHECK_TEST_MENU"},
+    {IO_LAMP_CHECK_TEST_MENU, "IO_LAMP_CHECK_TEST_MENU"},
+    {IO_MECHA_CHECK_TEST_MENU, "IO_MECHA_CHECK_TEST_MENU"},
+    {SCREEN_TEST_MENU, "SCREEN_TEST_MENU"},
+    {NETWORK_CHECK_MENU, "NETWORK_CHECK_MENU"},
+    {SYSTEM_INFO_TEST_MENU, "SYSTEM_INFO_TEST_MENU"},
+    {OSS_INFO_TEST_MENU, "OSS_INFO_TEST_MENU"},
+    {TOHO_CAMPAIGN_CONFIRM_TEST_MENU, "TOHO_CAMPAIGN_CONFIRM_TEST_MENU"},
+    {TOHO_CAMPAIGN_LIST_TEST_MENU, "TOHO_CAMPAIGN_LIST_TEST_MENU"},
+    {GOODS_CAMPAIGN_LIST_TEST_MENU, "GOODS_CAMPAIGN_LIST_TEST_MENU"},
+    {QC_TEST_MENU, "QC_TEST_MENU"}
+};
 
 DWORD currentProcessId = 0;
 HANDLE currentProcessHandle;
 MODULEINFO currentProcessInfo;
 MODULEINFO avs2CoreInfo;
 
-// NOTE: pattern search isn't implemented for base 1 (avs2core) yet
+#define PATTERN_SIZE(pattern) sizeof(pattern) / sizeof(PATTERN_BYTE)
+#define MAKE_PATTERN(pattern, offset, identifier, transformer) {pattern, PATTERN_SIZE(pattern), offset, identifier, NULL, transformer}
+#define MAKE_OFFSET(offset, identifier, transformer) {NULL, 0, offset, identifier, NULL, transformer}
+
+bool read_offset(void** addr, size_t extraOffset) {
+    size_t offset = 0;
+    size_t sizeRead = 0;
+    if (!read_address(&offset, &sizeRead, *addr, 4)) {
+        return false;
+    }
+    
+    *addr = (void*)(((size_t)*addr) + extraOffset + offset);
+
+    return true;
+}
+
+bool game_state_transformer(void** addr) {
+    if (!read_offset(addr, 4)) {
+        printf("Read address failed while transforming game state address\n");
+        return false;
+    }
+    return true;
+}
+
+bool game_state_table_transformer(void** addr) {
+    if (!read_offset(addr, 4)) {
+        printf("Read address failed while transforming game state address\n");
+        return false;
+    }
+    return true;
+}
+
 SEARCH_PATTERN searchPatterns[] = {
-    {PATTERN_GAME_STATE, 8, 0, 0, PI_GAME_STATE, NULL},
-    {NULL, 0, 0x146348, 1, PI_UI_PTR, NULL},
-    {NULL, 0, 0x799740, 0, PI_USERDATA_PTR, NULL}
+    MAKE_PATTERN(GAME_STATE_PATTERN, 2, PI_GAME_STATE, game_state_transformer),
+    MAKE_PATTERN(GAME_STATE_TABLE_PATTERN, 3, PI_STATE_TABLE, game_state_table_transformer),
 };
-const unsigned char PATTERN_COUNT = 3;
+const unsigned char PATTERN_COUNT = sizeof(searchPatterns) / sizeof(SEARCH_PATTERN);
 
 MEMORY_DATA MemoryData;
 
@@ -203,19 +325,25 @@ unsigned char search_page(MEMORY_BASIC_INFORMATION info, char* addr) {
 
     unsigned char unfound_patterns = 0;
     for (int i=0; i<PATTERN_COUNT; i++) {
-        SEARCH_PATTERN pattern = searchPatterns[i];
-        if (pattern.addr != NULL) continue;
+        SEARCH_PATTERN* search = &searchPatterns[i];
+        if (search->addr != NULL) continue;
         unfound_patterns++;
         
         size_t bufI = 0;
         size_t patternI = 0;
         while (bufI < bufSize) {
-            if (buf[bufI] == pattern.pattern[patternI]) {
+            if (search->pattern[patternI].wild || buf[bufI] == search->pattern[patternI].byte) {
                 patternI++;
-                if (patternI == pattern.size) {
-                    searchPatterns[i].addr = (void*)(addr+bufI+1+pattern.offset);
+                if (patternI == search->size) {
+                    // set addr to start of pattern
+                    search->addr = (void*)(addr+bufI-patternI+1+search->offset);
+                    if (search->transformer != NULL) {
+                        if (!search->transformer(&search->addr)) {
+                            return 0xFF;
+                        }
+                    }
                     unfound_patterns--;
-                    printf("Found pattern %d at 0x%p\n", pattern.identifier, searchPatterns[i].addr);
+                    printf("Found pattern %d at 0x%p\n", search->identifier, searchPatterns[i].addr);
                     break;
                 }
             } else {
@@ -241,14 +369,18 @@ bool init_patterns() {
     }
 
     for (int i=0; i<PATTERN_COUNT; i++) {
-        SEARCH_PATTERN pattern = searchPatterns[i];
-        if (pattern.pattern == NULL) {
-            searchPatterns[i].addr = (char*)(pattern.base == 1 ? avs2CoreInfo.lpBaseOfDll : currentProcessInfo.lpBaseOfDll) + pattern.offset;
-            printf("Found pattern %d at 0x%p\n", pattern.identifier, searchPatterns[i].addr);
+        SEARCH_PATTERN* search = &searchPatterns[i];
+        if (search->pattern == NULL) {
+            search->addr = (char*)currentProcessInfo.lpBaseOfDll + search->offset;
+            if (search->transformer != NULL) {
+                if (!search->transformer(&search->addr)) {
+                    return false;
+                }
+            }
+            printf("Initialized pattern %d at 0x%p\n", search->identifier, search->addr);
         }
     }
 
-    // TODO: implement pattern search for avs2core base patterns (if ever needed)
     char* addr = currentProcessInfo.lpBaseOfDll;
     MEMORY_BASIC_INFORMATION info;
     bool finished = false;
@@ -280,6 +412,11 @@ bool memory_reader_init() {
     if (!init_module_info()) return false;
     printf("Searching pages for wanted memory data\n");
     if (!init_patterns()) return false;
+
+    MemoryData.gameState = 0;
+    MemoryData.gameStateTableSize = 0;
+    MemoryData.gameStateName = "\0";
+
     printf("Memory reader finished initiating\n");
     return true;
 }
@@ -317,53 +454,33 @@ void* get_ptr(void* baseAddr, int num, ...) {
     Decode text of a certain ui object (denoted by index i).
     Returns false if a call to decode_text fails or it fails to parse the text, else true.
 */
-bool do_decode(int i) {
-    // First strip the text style thingy
-    char* uiText = MemoryData.uiObjects[i].text;
-    if (MemoryData.uiObjects[i].text[0] == '[') {
-        int textI = 0;
-        while (textI < 512) {
-            textI++;
-            if (uiText[textI] == ']' && uiText[textI+1] != '[') {
-                break;
-            }
-        }
-        if (textI == 512) {
-            printf("Failed to parse text of ui object %s", MemoryData.uiObjects[i].label);
-            uiText[0] = '\0';
-            return false;
-        }
-        char temp[512];
-        memcpy(temp, uiText+textI+1, 512-textI-1);
-        strcpy(uiText, temp);
-    }
+// bool do_decode(int i) {
+//     // First strip the text style thingy
+//     char* uiText = MemoryData.uiObjects[i].text;
+//     if (MemoryData.uiObjects[i].text[0] == '[') {
+//         int textI = 0;
+//         while (textI < 512) {
+//             textI++;
+//             if (uiText[textI] == ']' && uiText[textI+1] != '[') {
+//                 break;
+//             }
+//         }
+//         if (textI == 512) {
+//             printf("Failed to parse text of ui object %s", MemoryData.uiObjects[i].label);
+//             uiText[0] = '\0';
+//             return false;
+//         }
+//         char temp[512];
+//         memcpy(temp, uiText+textI+1, 512-textI-1);
+//         strcpy(uiText, temp);
+//     }
 
-    // Now decode the stripped text
-    char outBuf[512];
-    if (!decode_text(MemoryData.uiObjects[i].text, outBuf, 512)) return false;
-    strcpy(MemoryData.uiObjects[i].text, outBuf);
-    return true;
-}
-
-/*
-    Populates the items of the MemoryData.UiObjects array with values.
-    Returns false if a call to read_address or do_decode fails, else true.
-*/
-bool populate_ui_objects(void* addr) {
-    MemoryData.uiObjCount = 0;
-    size_t uiObjPtrs[26];
-    size_t sizeBuf;
-    if (!read_address(&uiObjPtrs, &sizeBuf, addr, sizeof(size_t)*26)) return true;
-    for (int i=0; i<26; i++) {
-        // Get UI objects
-        // Returns when a null ptr is encountered (list likely ended short of 26 for whatever reason)
-        if (uiObjPtrs[i] == 0) return true;
-        if (!read_address(MemoryData.uiObjects+i, &sizeBuf, (void*)uiObjPtrs[i], sizeof(UI_OBJECT))) return false;
-        if (!do_decode(i)) return false;
-        MemoryData.uiObjCount++;
-    }
-    return true;
-}
+//     // Now decode the stripped text
+//     char outBuf[512];
+//     if (!decode_text(MemoryData.uiObjects[i].text, outBuf, 512)) return false;
+//     strcpy(MemoryData.uiObjects[i].text, outBuf);
+//     return true;
+// }
 
 // docs in memory_reader.h
 bool memory_reader_update() {
@@ -374,23 +491,51 @@ bool memory_reader_update() {
         size_t sizeBuf;
         switch (pattern.identifier) {
             case PI_GAME_STATE:
-                if (!read_address(&MemoryData.gameState, &sizeBuf, pattern.addr, sizeof(unsigned char))) return false;
+                if (!read_address(&MemoryData.gameStateId, &sizeBuf, pattern.addr, sizeof(unsigned char))) return false;
                 continue;
-            case PI_UI_PTR:
+            case PI_STATE_TABLE:
             {
-                if (MemoryData.gameState != STATE_MUSIC_SELECT) continue;
-                char* uiPtrs = get_ptr(pattern.addr, 3, 0, 0x174, 0x158);
-                if (uiPtrs == NULL) continue;
-                if (!populate_ui_objects(uiPtrs+0x118)) return false;
-                continue;
+                // only need to read this once
+                if (MemoryData.gameStateTableSize > 0) {
+                    continue;
+                }
+
+                unsigned char buf[0x158];
+                while (true) {
+                    void* addr = (void*)(((size_t) pattern.addr) + (0x158 * MemoryData.gameStateTableSize));
+                    if (!read_address(buf, &sizeBuf, addr, sizeof(buf))) return false;
+
+                    if (((unsigned int*)(buf + 0x4))[0] != 0x4) {
+                        break;
+                    }
+
+                    GAME_STATE* gameState = &MemoryData.gameStateTable[MemoryData.gameStateTableSize];
+
+                    gameState->id = ((unsigned int*)buf)[0];
+                    void* namePtr = ((void**) (buf + 0x10))[0];
+                    if (!read_address(gameState->name, &sizeBuf, namePtr, 64)) return false;
+                    MemoryData.gameStateTableSize++;
+                }
             }
-            case PI_USERDATA_PTR:
-            {
-                if (MemoryData.gameState == STATE_STARTUP || MemoryData.gameState == STATE_LOADING || MemoryData.gameState == STATE_TITLE) continue;
-                void* ptr = get_ptr(pattern.addr, 1, 0);
-                if (ptr == NULL) return false;
-                if (!read_address(&MemoryData.userData, &sizeBuf, ptr, sizeof(USERDATA)));
-                continue;
+        }
+    }
+
+    // set game state enum based on game state id
+    bool foundState = false;
+    for (int i=0; i<MemoryData.gameStateTableSize; i++) {
+        if (MemoryData.gameStateTable[i].id == MemoryData.gameStateId) {
+            MemoryData.gameStateName = MemoryData.gameStateTable[i].name;
+            foundState = true;
+            break;
+        }
+    }
+    if (!foundState) {
+        MemoryData.gameStateName = "UNKNOWN";
+        MemoryData.gameState = GAME_STATE_UNKNOWN;
+    } else {
+        for (int i=0; i<GAME_STATES_MAP_SIZE; i++) {
+            if (!strcmp(MemoryData.gameStateName, GAME_STATES_MAP[i].name)) {
+                MemoryData.gameState = GAME_STATES_MAP[i].value;
             }
         }
     }

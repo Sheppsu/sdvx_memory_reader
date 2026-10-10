@@ -4,60 +4,108 @@
 #include <windows.h>
 #include <stdbool.h>
 
-static const unsigned char PATTERN_GAME_STATE[8] = {0x22, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x2B, 0x00};
+typedef struct {
+    const char byte;
+    const bool wild;
+} PATTERN_BYTE;
+
+extern const PATTERN_BYTE GAME_STATE_PATTERN[15];
+extern const PATTERN_BYTE GAME_STATE_TABLE_PATTERN[12];
 
 enum GAME_STATES {
-    STATE_MUSIC_SELECT = 0x10,
-    STATE_STAGE = 0x29,
-    STATE_RESULTS = 0xE,
-    STATE_TITLE = 0xB,
-    STATE_COURSE_SELECT = 0x22,
-    STATE_COURSE_RESULT = 0xF,
-    STATE_MODE_SELECT = 0x1B,
-    STATE_MENU_SELECT = 0x28,
-    STATE_ENTRY = 0x18,
-    STATE_STARTUP = 0xFF,
-    STATE_LOADING = 0x00
+    BOOT,
+    ONLINEUPDATE,
+    APPMAINFLOW,
+    TESTMODE_FLOW,
+    TITLEDEMO_FLOW,
+    TOTAL_RESULT_FLOW,
+    PROTOTYPE_FLOW,
+    SHOPCLOSING,
+    CAUTION,
+    GAMEOVER,
+    CONFIG_VERISON_CHECK,
+    TITLE_SCENE,
+    WARNING_SCENE,
+    MOVIE_SCENE,
+    RESULT_SCENE,
+    T_RESULT_SCENE,
+    MUSICSELECT,
+    DEMO_GAME,
+    DEMO_TUTORIAL,
+    CARD_ENTRY_SCENE,
+    CARD_ENTRY_JOIN_SCENE,
+    CARD_ENTRY_NEWEAPASS_SCENE,
+    CARD_ENTRY_REGIST_SCENE,
+    CARD_ENTRY_AUTH_SCENE,
+    CARD_ENTRY_CHECKIN_SCENE,
+    CARD_ENTRY_INFORMATION_SCENE,
+    CARD_ENTRY_MODE_SELECT_SCENE,
+    CARD_ENTRY_ERROREND_SCENE,
+    CARD_ENTRY_END_SCENE,
+    NAME_ENTRY_SCENE,
+    RADARMAP_SELECT_SCENE,
+    CARD_OUT_SCENE,
+    STATION_SCENE,
+    SKILL_LEVEL_SELECT,
+    TUTORIAL,
+    INFORMATION_SCENE,
+    IMPOSSIBLE_NOTES_CHECK,
+    PROTOTYPE_VIEWER,
+    SYSTEM_VOLUME_CHECK_TEST_MENU,
+    MYROOM_SCENE,
+    ALTERNATIVE_GAME_SCENE,
+    MEGAMIXBATTLE_SCENE,
+    TRAINING_GAME_SCENE,
+    MAIN_TEST_MENU,
+    IO_TEST_MENU,
+    IO_INPUT_CHECK_TEST_MENU,
+    IO_CAMERA_CHECK_TEST_MENU,
+    IO_TOUCH_PANEL_CHECK_TEST_MENU,
+    IO_LAMP_CHECK_TEST_MENU,
+    IO_MECHA_CHECK_TEST_MENU,
+    SCREEN_TEST_MENU,
+    NETWORK_CHECK_MENU,
+    SYSTEM_INFO_TEST_MENU,
+    OSS_INFO_TEST_MENU,
+    TOHO_CAMPAIGN_CONFIRM_TEST_MENU,
+    TOHO_CAMPAIGN_LIST_TEST_MENU,
+    GOODS_CAMPAIGN_LIST_TEST_MENU,
+    QC_TEST_MENU,
+    GAME_STATE_UNKNOWN
 };
+
+#define GAME_STATES_MAP_SIZE 58
+typedef struct {
+    unsigned char value;
+    const char* name;
+} GAME_STATE_MAP_ITEM;
+extern const GAME_STATE_MAP_ITEM GAME_STATES_MAP[GAME_STATES_MAP_SIZE];
 
 enum PATTERN_IDENTIFIERS {
     PI_GAME_STATE,
-    PI_UI_PTR,
-    PI_USERDATA_PTR
+    PI_STATE_TABLE,
 };
 
-typedef struct _UI_OBJECT {
-    char _trash1[120];
-    char label[128];
-    char _trash2[36];
-    char text[512];  // actually bigger than 512 in memory I think, but this is enough
-} UI_OBJECT;
+typedef struct {
+    unsigned int id;
+    char name[64];
+} GAME_STATE;
 
-typedef struct _USERDATA {
-    size_t _ptr1;
-    int _unknown1;
-    char str1[17]; // idk what these strings are, the names can be fixed when that's figured out
-    char str2[13];
-    char str3[17];
-    char username[9];
-    char _unknown2[212];
-    unsigned int volforce;
-} USERDATA;
-
-typedef struct _MEMORY_DATA {
-    unsigned char gameState;
-    UI_OBJECT uiObjects[26];
-    unsigned char uiObjCount;
-    USERDATA userData;
+typedef struct {
+    unsigned int gameStateId;  // the id used by the game
+    unsigned int gameState;  // value from the GAME_STATES enum
+    char* gameStateName;
+    GAME_STATE gameStateTable[128];  // table of game state ids and names
+    size_t gameStateTableSize;
 } MEMORY_DATA;
 
-typedef struct _SEARCH_PATTERN {
-    const char* pattern;
+typedef struct {
+    const PATTERN_BYTE* pattern;
     const unsigned char size;
     const unsigned int offset;
-    const unsigned char base;
     const unsigned char identifier;
     void* addr;
+    bool (*transformer)(void** addr);
 } SEARCH_PATTERN;
 
 extern MEMORY_DATA MemoryData;
@@ -81,5 +129,8 @@ bool memory_reader_update();
     Get the process id of the current process (sv6c.exe).
 */
 DWORD memory_reader_process_id();
+
+// internals
+bool read_address(void* buf, size_t* sizeBuf, void* address, size_t size);
 
 #endif  /* MEMORY_READER_H */
