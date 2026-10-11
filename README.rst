@@ -2,9 +2,8 @@ SDVX Memory Reader
 ------------------
 C library for reading memory of Sound Voltex Exceed Gear. 
 It does not implement any methods to inject itself into the program, but instead just calls ReadProcessMemory.
-I plan to add more to it, because at the moment it's fairly barebones. 
-I also need to add docs on some more of the functions, but as of now it works fine. 
-Future updates may break it, in which case you can just create an `issue`_.
+
+Future updates to the game may break it, in which case you can just create an `issue`_.
 
 Programs that use this library
 ##############################
