@@ -7,7 +7,18 @@ int main(int arc, char** argv) {
     if (!memory_reader_update()) return 1;
     printf("Game state: %s\n", MemoryData.gameStateName);
     printf("Found %d states\n", MemoryData.gameStateTableSize);
-    for (int i=0; i<MemoryData.gameStateTableSize; i++) {
-        printf("State %d: %s\n", MemoryData.gameStateTable[i].id, MemoryData.gameStateTable[i].name);
+    printf("Found %d score records\n", MemoryData.scoreRecordsSize);
+    printf("Found %d music entries\n", MemoryData.musicDbSize);
+    MUSIC_ENTRY* currentlyPlaying = memory_reader_get_currently_playing();
+    if (currentlyPlaying == NULL) {
+        printf("Nothing playing\n");
+    } else {
+        printf(
+            "Currently playing %s - %s, stage %d, difficulty %d\n",
+            currentlyPlaying->artistName,
+            currentlyPlaying->titleName,
+            MemoryData.currentlyPlayingStage,
+            MemoryData.currentlyPlayingDifficulty
+        );
     }
 }

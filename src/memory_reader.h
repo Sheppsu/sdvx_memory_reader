@@ -9,9 +9,6 @@ typedef struct {
     const bool wild;
 } PATTERN_BYTE;
 
-extern const PATTERN_BYTE GAME_STATE_PATTERN[15];
-extern const PATTERN_BYTE GAME_STATE_TABLE_PATTERN[12];
-
 enum GAME_STATES {
     BOOT,
     ONLINEUPDATE,
@@ -84,6 +81,9 @@ extern const GAME_STATE_MAP_ITEM GAME_STATES_MAP[GAME_STATES_MAP_SIZE];
 enum PATTERN_IDENTIFIERS {
     PI_GAME_STATE,
     PI_STATE_TABLE,
+    PI_SCORE_RECORDS,
+    PI_MUSIC_DB_MANAGER,
+    PI_CURRENTLY_PLAYING,
 };
 
 typedef struct {
@@ -92,11 +92,65 @@ typedef struct {
 } GAME_STATE;
 
 typedef struct {
+    unsigned int stageNumber;
+    unsigned int musicId;
+    unsigned int difficulty;
+    unsigned int playMode;
+    unsigned int clear;
+    unsigned int grade;
+    unsigned int score;
+    unsigned int exScore;
+    unsigned int maxChain;
+    unsigned int just;
+    unsigned int critical;
+    unsigned int nearr;
+    unsigned int error;
+    unsigned int btn;
+    unsigned int lng;
+} SCORE_RECORD;
+
+typedef struct {
+    int musicId;
+    int version;
+    int infVer;
+    unsigned int genre;
+    int bgNo;
+    int demoPri;
+    unsigned int distributionDate;
+    unsigned int bpmMin;
+    unsigned int bpmMax;
+    unsigned short volume;
+    int level[5];
+    int price[5];
+    int jacketPrint[5];
+    int jacketMask[5];
+    char label[8];
+    char ascii[64];
+    char titleName[256];
+    char titleName2[256];
+    char artistName[256];
+    char titleYomigana[256];
+    char artistYomigana[256];
+    char illustrator[5][256];
+    char effectedBy[5][256];
+} MUSIC_ENTRY;
+
+typedef struct {
     unsigned int gameStateId;  // the id used by the game
     unsigned int gameState;  // value from the GAME_STATES enum
     char* gameStateName;
     GAME_STATE gameStateTable[128];  // table of game state ids and names
     size_t gameStateTableSize;
+
+    SCORE_RECORD* scoreRecords;
+    size_t scoreRecordsSize;
+
+    MUSIC_ENTRY* musicDb;
+    size_t musicDbSize;
+
+    int currentlyPlayingMusicId;
+    int currentlyPlayingStage;
+    int currentlyPlayingDifficulty;
 } MEMORY_DATA;
 
 typedef struct {
@@ -113,6 +167,8 @@ extern MEMORY_DATA MemoryData;
 /*
     Looks for and attempts to open a handle to the SDVX process.
     Then finds all the memory addresses for the data we want.
+    This function should only be called once unless cleanup is called
+    before the second call.
 */
 bool memory_reader_init();
 /*
@@ -129,6 +185,16 @@ bool memory_reader_update();
     Get the process id of the current process (sv6c.exe).
 */
 DWORD memory_reader_process_id();
+/*
+    Get the music entry information of the currently
+    playing track. Returns a reference to the MUSIC_ENTRY
+    object stored in MemoryData, so it may no longer
+    be valid once update() is run again.
+
+    If the track cannot be found, the returned pointer
+    will be NULL.
+*/
+MUSIC_ENTRY* memory_reader_get_currently_playing();
 
 // internals
 bool read_address(void* buf, size_t* sizeBuf, void* address, size_t size);

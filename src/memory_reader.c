@@ -36,6 +36,94 @@ const PATTERN_BYTE GAME_STATE_TABLE_PATTERN[12] = {
     {0x8B, false},
     {0xC0, false},
 };
+const PATTERN_BYTE SCORE_RECORDS_PATTERN[16] = {
+    {0x48, false},
+    {0x8B, false},
+    {0x0D, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x8B, false},
+    {0x41, false},
+    {0x20, false},
+    {0x89, false},
+    {0x85, false},
+    {0x8C, false},
+    {0x04, false},
+    {0x00, false},
+    {0x00, false},
+};
+const PATTERN_BYTE MUSIC_DB_MANAGER_PATTERN[13] = {
+    {0x48, false},
+    {0x89, false},
+    {0x1D, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0xB9, false},
+    {0x18, false},
+    {0xE0, false},
+    {0x1F, false},
+    {0x00, false},
+    {0xE8, false},
+};
+const PATTERN_BYTE CURRENTLY_PLAYING_PATTERN[53] = {
+    {0x4D, false},
+    {0x85, false},
+    {0xF6, false},
+    {0x0F, false},
+    {0x84, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x8B, false},
+    {0x05, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0xA8, false},
+    {0x01, false},
+    {0x75, false},
+    {0x00, true},
+    {0x83, false},
+    {0xC8, false},
+    {0x01, false},
+    {0x89, false},
+    {0x05, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x48, false},
+    {0x8D, false},
+    {0x0D, false},
+    {0x00, true},  // part we want
+    {0x00, true},  //
+    {0x00, true},  //
+    {0x00, true},  //
+    {0xE8, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x48, false},
+    {0x8D, false},
+    {0x0D, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0xE8, false},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x00, true},
+    {0x90, false},
+};
 
 const GAME_STATE_MAP_ITEM GAME_STATES_MAP[GAME_STATES_MAP_SIZE] = {
     {BOOT, "BOOT"},
@@ -135,9 +223,51 @@ bool game_state_table_transformer(void** addr) {
     return true;
 }
 
+bool score_records_transformer(void** addr) {
+    if (!read_offset(addr, 4)) {
+        printf("Read address failed while transforming score records address\n");
+        return false;
+    }
+
+    size_t bufSize;
+    if (!read_address(addr, &bufSize, *addr, sizeof(void*))) {
+        printf("Read address failed while transforming score records address\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool music_db_manager_transformer(void** addr) {
+    if (!read_offset(addr, 4)) {
+        printf("Read address failed while transforming music db manager address\n");
+        return false;
+    }
+
+    size_t bufSize;
+    if (!read_address(addr, &bufSize, *addr, sizeof(void*))) {
+        printf("Read address failed while transforming music db manager address\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool currently_playing_transformer(void** addr) {
+    if (!read_offset(addr, 4)) {
+        printf("Read address failed while transforming currently playing address\n");
+        return false;
+    }
+
+    return true;
+}
+
 SEARCH_PATTERN searchPatterns[] = {
     MAKE_PATTERN(GAME_STATE_PATTERN, 2, PI_GAME_STATE, game_state_transformer),
     MAKE_PATTERN(GAME_STATE_TABLE_PATTERN, 3, PI_STATE_TABLE, game_state_table_transformer),
+    MAKE_PATTERN(SCORE_RECORDS_PATTERN, 3, PI_SCORE_RECORDS, score_records_transformer),
+    MAKE_PATTERN(MUSIC_DB_MANAGER_PATTERN, 3, PI_MUSIC_DB_MANAGER, music_db_manager_transformer),
+    MAKE_PATTERN(CURRENTLY_PLAYING_PATTERN, 31, PI_CURRENTLY_PLAYING, currently_playing_transformer),
 };
 const unsigned char PATTERN_COUNT = sizeof(searchPatterns) / sizeof(SEARCH_PATTERN);
 
@@ -399,10 +529,12 @@ bool init_patterns() {
             break;
         }
     }
+
+    printf("Failed to find all patterns\n");
+
     return false;
 }
 
-// docs in memory_reader.h
 bool memory_reader_init() {
     printf("Searching for process\n");
     if (!set_current_process("sv6c.exe")) return false;
@@ -416,15 +548,27 @@ bool memory_reader_init() {
     MemoryData.gameState = 0;
     MemoryData.gameStateTableSize = 0;
     MemoryData.gameStateName = "\0";
+    MemoryData.scoreRecords = NULL;
+    MemoryData.scoreRecordsSize = 0;
+    MemoryData.musicDb = NULL;
+    MemoryData.musicDbSize = 0;
 
     printf("Memory reader finished initiating\n");
     return true;
 }
 
-// docs in memory_reader.h
 bool memory_reader_cleanup() {
     printf("Cleaning up\n");
+    
+    if (MemoryData.scoreRecords != NULL) {
+        free(MemoryData.scoreRecords);
+    }
+    if (MemoryData.musicDb != NULL) {
+        free(MemoryData.musicDb);
+    }
+
     memset(&MemoryData, 0, sizeof(MEMORY_DATA));
+
     if (!close_process()) return false;
     printf("Finished cleaning");
     return true;
@@ -438,11 +582,11 @@ void* get_ptr(void* baseAddr, int num, ...) {
     va_list args;
     va_start(args, num);
 
-    size_t from = (size_t)baseAddr;
-    size_t to;
+    void* from = baseAddr;
+    void* to;
     size_t sizeBuf;
     for (int i=0; i<num; i++) {
-        if (!read_address(&to, &sizeBuf, (void*)(from+va_arg(args, int)), sizeof(size_t))) return NULL;
+        if (!read_address(&to, &sizeBuf, (void*)((size_t)from+va_arg(args, int)), sizeof(void*))) return NULL;
         if (to == 0) return NULL;
         from = to;
     }
@@ -482,9 +626,7 @@ void* get_ptr(void* baseAddr, int num, ...) {
 //     return true;
 // }
 
-// docs in memory_reader.h
 bool memory_reader_update() {
-    // TODO: use char instead of string to identify pattern type
     for (int i=0; i<PATTERN_COUNT; i++) {
         SEARCH_PATTERN pattern = searchPatterns[i];
 
@@ -511,11 +653,113 @@ bool memory_reader_update() {
 
                     GAME_STATE* gameState = &MemoryData.gameStateTable[MemoryData.gameStateTableSize];
 
-                    gameState->id = ((unsigned int*)buf)[0];
-                    void* namePtr = ((void**) (buf + 0x10))[0];
+                    gameState->id = *((unsigned int*)buf);
+                    void* namePtr = *((void**) (buf + 0x10));
                     if (!read_address(gameState->name, &sizeBuf, namePtr, 64)) return false;
                     MemoryData.gameStateTableSize++;
                 }
+
+                break;
+            }
+            case PI_SCORE_RECORDS:
+            {
+                char buf1[0x24];
+                if (!read_address(buf1, &sizeBuf, pattern.addr, sizeof(buf1))) return false;
+
+                unsigned int count = *((int*)(buf1 + 0x20));
+                if (count == 0) {
+                    continue;
+                } else if (MemoryData.scoreRecords == NULL) {
+                    MemoryData.scoreRecords = malloc(sizeof(SCORE_RECORD) * count);
+                } else if (MemoryData.scoreRecordsSize != count) {
+                    MemoryData.scoreRecords = realloc(MemoryData.scoreRecords, sizeof(SCORE_RECORD) * count);
+                }
+
+                void* recordsAddr;
+                if (!read_address(&recordsAddr, &sizeBuf, (char*)pattern.addr + 0x8, sizeof(void*))) return false;
+                char buf2[0x548];
+                for (int i=0; i<count; i++) {
+                    if (!read_address(&buf2, &sizeBuf, (char*)recordsAddr + sizeof(buf2) * i, sizeof(buf2))) return false;
+                    MemoryData.scoreRecords[i].stageNumber = *(unsigned int*)(buf2 + 0x50C);
+                    MemoryData.scoreRecords[i].musicId = *(unsigned int*)(buf2 + 0x514);
+                    MemoryData.scoreRecords[i].difficulty = *(unsigned int*)(buf2 + 0x98);
+                    MemoryData.scoreRecords[i].playMode = *(unsigned int*)(buf2 + 0x74);
+                    MemoryData.scoreRecords[i].clear = *(unsigned int*)(buf2 + 0x9C);
+                    MemoryData.scoreRecords[i].grade = *(unsigned int*)(buf2 + 0xA0);
+                    MemoryData.scoreRecords[i].score = *(unsigned int*)(buf2 + 0xA4);
+                    MemoryData.scoreRecords[i].exScore = *(unsigned int*)(buf2 + 0xA8);
+                    MemoryData.scoreRecords[i].maxChain = *(unsigned int*)(buf2 + 0xB8);
+                    MemoryData.scoreRecords[i].just = *(unsigned int*)(buf2 + 0xBC);
+                    MemoryData.scoreRecords[i].critical = *(unsigned int*)(buf2 + 0xC0);
+                    MemoryData.scoreRecords[i].nearr = *(unsigned int*)(buf2 + 0xC4);
+                    MemoryData.scoreRecords[i].error = *(unsigned int*)(buf2 + 0xC8);
+                    MemoryData.scoreRecords[i].btn = *(unsigned int*)(buf2 + 0x1A4);
+                    MemoryData.scoreRecords[i].lng = *(unsigned int*)(buf2 + 0x1A8);
+                }
+                MemoryData.scoreRecordsSize = count;
+
+                break;
+            }
+            case PI_MUSIC_DB_MANAGER:
+            {
+                // only need to read once
+                if (MemoryData.musicDbSize > 0) {
+                    continue;
+                }
+
+                char buf1[0x18];
+                char buf2[0x1300];
+
+                if (!read_address(&buf1, &sizeBuf, pattern.addr, sizeof(buf1))) return false;
+
+                void* start = *(void**)(buf1 + 0x8);
+                void* end = *(void**)(buf1 + 0x10);
+                size_t count = ((size_t)end - (size_t)start) / sizeof(buf2);
+                if (count == 0) {
+                    continue;
+                }
+                MemoryData.musicDb = malloc(sizeof(MUSIC_ENTRY) * count);
+                
+                for (int i=0; i<count; i++) {
+                    if (!read_address(&buf2, &sizeBuf, (char*)start + sizeof(buf2) * i, sizeof(buf2))) return false;
+                    MemoryData.musicDb[i].musicId = *(int*)buf2;
+                    MemoryData.musicDb[i].version = *(int*)(buf2 + 0x4);
+                    MemoryData.musicDb[i].infVer = *(int*)(buf2 + 0x8);
+                    MemoryData.musicDb[i].genre = *(unsigned int*)(buf2 + 0xC);
+                    MemoryData.musicDb[i].bgNo = *(int*)(buf2 + 0x10);
+                    MemoryData.musicDb[i].demoPri = *(int*)(buf2 + 0x14);
+                    MemoryData.musicDb[i].distributionDate = *(unsigned int*)(buf2 + 0x18);
+                    MemoryData.musicDb[i].bpmMin = *(unsigned int*)(buf2 + 0x1C);
+                    MemoryData.musicDb[i].bpmMax = *(unsigned int*)(buf2 + 0x20);
+                    MemoryData.musicDb[i].volume = *(unsigned short*)(buf2 + 0x24);
+                    memcpy(&MemoryData.musicDb[i].level, buf2 + 0x3C, sizeof(int) * 5);
+                    memcpy(&MemoryData.musicDb[i].price, buf2 + 0x50, sizeof(int) * 5);
+                    memcpy(&MemoryData.musicDb[i].jacketPrint, buf2 + 0x78, sizeof(int) * 5);
+                    memcpy(&MemoryData.musicDb[i].jacketMask, buf2 + 0x8C, sizeof(int) * 5);
+                    memcpy(&MemoryData.musicDb[i].label, buf2 + 0xF0, 8);
+                    memcpy(&MemoryData.musicDb[i].ascii, buf2 + 0xF8, 64);
+                    memcpy(&MemoryData.musicDb[i].titleName, buf2 + 0x138, 256);
+                    memcpy(&MemoryData.musicDb[i].titleName2, buf2 + 0x238, 256);
+                    memcpy(&MemoryData.musicDb[i].artistName, buf2 + 0x338, 256);
+                    memcpy(&MemoryData.musicDb[i].titleYomigana, buf2 + 0x438, 256);
+                    memcpy(&MemoryData.musicDb[i].artistYomigana, buf2 + 0x538, 256);
+                    memcpy(&MemoryData.musicDb[i].illustrator, buf2 + 0x838, 5 * 256);
+                    memcpy(&MemoryData.musicDb[i].effectedBy, buf2 + 0xD38, 5 * 256);
+                }
+                MemoryData.musicDbSize = count;
+
+                break;
+            }
+            case PI_CURRENTLY_PLAYING:
+            {
+                char buf[12];
+                if (!read_address(&buf, &sizeBuf, (char*)pattern.addr + 0x200, sizeof(buf))) return false;
+
+                MemoryData.currentlyPlayingMusicId = ((int*)buf)[0];
+                MemoryData.currentlyPlayingStage = ((int*)buf)[1];
+                MemoryData.currentlyPlayingDifficulty = ((int*)buf)[2];
+
+                break;
             }
         }
     }
@@ -543,7 +787,30 @@ bool memory_reader_update() {
     return true;
 }
 
-// docs in memory_reader.h
+MUSIC_ENTRY* memory_reader_get_currently_playing() {
+    // use musicId to start at a near index, then probe around
+    // music ids are sorted (I think), so that helps
+
+    int i = MemoryData.currentlyPlayingMusicId;
+    if (i >= MemoryData.musicDbSize) {
+        i = MemoryData.musicDbSize - 1;
+    }
+
+    if (MemoryData.musicDb[i].musicId == MemoryData.currentlyPlayingMusicId) {
+        return &MemoryData.musicDb[i];
+    } else if (MemoryData.musicDb[i].musicId < MemoryData.currentlyPlayingMusicId) {
+        while (MemoryData.musicDb[i].musicId < MemoryData.currentlyPlayingMusicId && i < MemoryData.musicDbSize - 1) {
+            i++;
+        }
+        return MemoryData.musicDb[i].musicId == MemoryData.currentlyPlayingMusicId ? &MemoryData.musicDb[i] : NULL;
+    } else {
+        while (MemoryData.musicDb[i].musicId > MemoryData.currentlyPlayingMusicId && i > 0) {
+            i--;
+        }
+        return MemoryData.musicDb[i].musicId == MemoryData.currentlyPlayingMusicId ? &MemoryData.musicDb[i] : NULL;
+    }
+}
+
 DWORD memory_reader_process_id() {
     return currentProcessId;
 }
