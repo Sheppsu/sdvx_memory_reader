@@ -3,6 +3,8 @@
 
 
 int main(int arc, char** argv) {
+    SetConsoleOutputCP(CP_UTF8);
+
     if (!memory_reader_init()) return 1;
     if (!memory_reader_update()) return 1;
     printf("Game state: %s\n", MemoryData.gameStateName);
@@ -21,4 +23,6 @@ int main(int arc, char** argv) {
             MemoryData.currentlyPlayingDifficulty
         );
     }
+	
+	printf("Completed successfully\n");
 }

@@ -1,4 +1,5 @@
 #include "memory_reader.h"
+#include "decode.h"
 #include <tlhelp32.h>
 #include <Psapi.h>
 #include <stdio.h>
@@ -593,38 +594,6 @@ void* get_ptr(void* baseAddr, int num, ...) {
     return (void*)from;
 }
 
-/*
-    Decode text of a certain ui object (denoted by index i).
-    Returns false if a call to decode_text fails or it fails to parse the text, else true.
-*/
-// bool do_decode(int i) {
-//     // First strip the text style thingy
-//     char* uiText = MemoryData.uiObjects[i].text;
-//     if (MemoryData.uiObjects[i].text[0] == '[') {
-//         int textI = 0;
-//         while (textI < 512) {
-//             textI++;
-//             if (uiText[textI] == ']' && uiText[textI+1] != '[') {
-//                 break;
-//             }
-//         }
-//         if (textI == 512) {
-//             printf("Failed to parse text of ui object %s", MemoryData.uiObjects[i].label);
-//             uiText[0] = '\0';
-//             return false;
-//         }
-//         char temp[512];
-//         memcpy(temp, uiText+textI+1, 512-textI-1);
-//         strcpy(uiText, temp);
-//     }
-
-//     // Now decode the stripped text
-//     char outBuf[512];
-//     if (!decode_text(MemoryData.uiObjects[i].text, outBuf, 512)) return false;
-//     strcpy(MemoryData.uiObjects[i].text, outBuf);
-//     return true;
-// }
-
 bool memory_reader_update() {
     for (int i=0; i<PATTERN_COUNT; i++) {
         SEARCH_PATTERN pattern = searchPatterns[i];
@@ -735,15 +704,19 @@ bool memory_reader_update() {
                     memcpy(&MemoryData.musicDb[i].price, buf2 + 0x50, sizeof(int) * 5);
                     memcpy(&MemoryData.musicDb[i].jacketPrint, buf2 + 0x78, sizeof(int) * 5);
                     memcpy(&MemoryData.musicDb[i].jacketMask, buf2 + 0x8C, sizeof(int) * 5);
-                    memcpy(&MemoryData.musicDb[i].label, buf2 + 0xF0, 8);
-                    memcpy(&MemoryData.musicDb[i].ascii, buf2 + 0xF8, 64);
-                    memcpy(&MemoryData.musicDb[i].titleName, buf2 + 0x138, 256);
-                    memcpy(&MemoryData.musicDb[i].titleName2, buf2 + 0x238, 256);
-                    memcpy(&MemoryData.musicDb[i].artistName, buf2 + 0x338, 256);
-                    memcpy(&MemoryData.musicDb[i].titleYomigana, buf2 + 0x438, 256);
-                    memcpy(&MemoryData.musicDb[i].artistYomigana, buf2 + 0x538, 256);
-                    memcpy(&MemoryData.musicDb[i].illustrator, buf2 + 0x838, 5 * 256);
-                    memcpy(&MemoryData.musicDb[i].effectedBy, buf2 + 0xD38, 5 * 256);
+                    decode_text(buf2 + 0xF0, MemoryData.musicDb[i].label, 8);
+                    decode_text(buf2 + 0xF8, MemoryData.musicDb[i].ascii, 64);
+                    decode_text(buf2 + 0x138, MemoryData.musicDb[i].titleName, 256);
+                    decode_text(buf2 + 0x238, MemoryData.musicDb[i].titleName2, 256);
+                    decode_text(buf2 + 0x338, MemoryData.musicDb[i].artistName, 256);
+                    decode_text(buf2 + 0x438, MemoryData.musicDb[i].titleYomigana, 256);
+                    decode_text(buf2 + 0x538, MemoryData.musicDb[i].artistYomigana, 256);
+                    for (int j=0; j<5; j++) {
+                        decode_text(buf2 + 0x838 + 256 * j, MemoryData.musicDb[i].illustrator[j], 256);
+                    }
+                    for (int j=0; j<5; j++) {
+                        decode_text(buf2 + 0xD38 + 256 * j, MemoryData.musicDb[i].effectedBy[j], 256);
+                    }
                 }
                 MemoryData.musicDbSize = count;
 
